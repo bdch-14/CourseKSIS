@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { MatchResult } from '@prisma/client';
+import { MatchResult, MatchStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -61,25 +61,34 @@ export class UsersService {
     }
 
     async getStats(userId: string) {
+        const baseWhere = {
+            userId,
+            match: {
+                status: {
+                    in: [MatchStatus.FINISHED, MatchStatus.ABORTED],
+                },
+            },
+        };
+
         const [totalGames, wins, losses, draws] = await Promise.all([
             this.prisma.matchPlayer.count({
-                where: { userId },
+                where: baseWhere,
             }),
             this.prisma.matchPlayer.count({
                 where: {
-                    userId,
+                    ...baseWhere,
                     result: MatchResult.WIN,
                 },
             }),
             this.prisma.matchPlayer.count({
                 where: {
-                    userId,
+                    ...baseWhere,
                     result: MatchResult.LOSE,
                 },
             }),
             this.prisma.matchPlayer.count({
                 where: {
-                    userId,
+                    ...baseWhere,
                     result: MatchResult.DRAW,
                 },
             }),
@@ -92,10 +101,16 @@ export class UsersService {
             draws,
         };
     }
-
     async getMatchHistory(userId: string) {
         const matches = await this.prisma.matchPlayer.findMany({
-            where: { userId },
+            where: {
+                userId,
+                match: {
+                    status: {
+                        in: [MatchStatus.FINISHED, MatchStatus.ABORTED],
+                    },
+                },
+            },
             include: {
                 user: true,
                 match: {
@@ -149,6 +164,36 @@ export class UsersService {
                 result: currentPlayer.result,
             };
         });
+    }
+
+    async getProfileBundle(userId: string) {
+        const [user, stats, matches] = await Promise.all([
+            this.getProfile(userId),
+            this.getStats(userId),
+            this.getMatchHistory(userId),
+        ]);
+
+        const winRate =
+            stats.totalGames > 0 ? Math.round((stats.wins / stats.totalGames) * 100) : 0;
+
+        return {
+            user,
+            stats: {
+                ...stats,
+                winRate,
+            },
+            history: matches.map((match) => ({
+                id: match.matchId,
+                playedAt: match.date,
+                difficulty: match.difficulty,
+                status: match.winner ? 'FINISHED' : 'ABORTED',
+                myScore: match.score,
+                opponentScore: match.opponentScore,
+                result: match.result === 'LOSE' ? 'LOSS' : match.result,
+                opponent: match.opponent,
+                durationSeconds: match.durationSeconds,
+            })),
+        };
     }
 
     private sanitizeUser(user: {

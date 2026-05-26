@@ -31,4 +31,9 @@ export class UsersController {
     getMyMatches(@CurrentUser() user: { id: string }) {
         return this.usersService.getMatchHistory(user.id);
     }
+
+    @Get('me/profile')
+    getMyProfileBundle(@CurrentUser() user: { id: string }) {
+        return this.usersService.getProfileBundle(user.id);
+    }
 }

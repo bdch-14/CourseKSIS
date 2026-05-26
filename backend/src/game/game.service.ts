@@ -3,7 +3,7 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
-import { Difficulty, MatchResult, MatchStatus, RoomStatus } from '@prisma/client';
+import { Difficulty, MatchResult, MatchStatus, RoomStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomsService } from '../rooms/rooms.service';
 import { EMOJI_SETS } from './constants/emoji-sets';
@@ -23,13 +23,21 @@ export class GameService {
         const existingGame = this.activeGames.get(roomId);
 
         if (existingGame) {
-            return existingGame;
+            return this.toPublicState(existingGame);
         }
 
         const room = await this.roomsService.getRoomById(roomId);
 
         if (room.participants.length !== 2) {
             throw new BadRequestException('Для старта игры требуется 2 игрока');
+        }
+
+        const existingMatch = await this.prisma.match.findUnique({
+            where: { roomId },
+        });
+
+        if (existingMatch && existingMatch.status === MatchStatus.FINISHED) {
+            throw new BadRequestException('Матч для этой комнаты уже завершён');
         }
 
         const difficulty = room.difficulty;
@@ -61,21 +69,32 @@ export class GameService {
             status: 'IN_PROGRESS',
         };
 
-        await this.prisma.match.create({
-            data: {
-                roomId,
-                difficulty,
-                status: MatchStatus.IN_PROGRESS,
-                players: {
-                    create: players.map((player, index) => ({
-                        userId: player.userId,
-                        score: 0,
-                        result: MatchResult.DRAW,
-                        position: index + 1,
-                    })),
-                },
-            },
-        });
+        if (!existingMatch) {
+            try {
+                await this.prisma.match.create({
+                    data: {
+                        roomId,
+                        difficulty,
+                        status: MatchStatus.IN_PROGRESS,
+                        players: {
+                            create: players.map((player, index) => ({
+                                userId: player.userId,
+                                score: 0,
+                                result: MatchResult.DRAW,
+                                position: index + 1,
+                            })),
+                        },
+                    },
+                });
+            } catch (error) {
+                if (
+                    error instanceof Prisma.PrismaClientKnownRequestError &&
+                    error.code !== 'P2002'
+                ) {
+                    throw error;
+                }
+            }
+        }
 
         this.activeGames.set(roomId, gameState);
 
@@ -221,13 +240,15 @@ export class GameService {
                 },
             });
 
+            const match = await tx.match.findUniqueOrThrow({
+                where: { roomId },
+            });
+
             for (const player of game.players) {
                 await tx.matchPlayer.update({
                     where: {
                         matchId_userId: {
-                            matchId: (
-                                await tx.match.findUniqueOrThrow({ where: { roomId } })
-                            ).id,
+                            matchId: match.id,
                             userId: player.userId,
                         },
                     },

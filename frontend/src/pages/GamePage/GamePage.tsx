@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '../../components/Button/Button';
 import { GameCard } from '../../components/GameCard/GameCard';
@@ -23,6 +23,11 @@ export const GamePage = () => {
 
     const [gameState, setGameState] = useState<GameState | null>(null);
     const [connectionStatus, setConnectionStatus] = useState('Подключение...');
+    const [resultModal, setResultModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        description: string;
+    } | null>(null);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
 
@@ -33,10 +38,76 @@ export const GamePage = () => {
     const isMyTurn = gameState?.currentTurnUserId === user?.id;
     const openedCardsCount = gameState?.openedCardIndexes.length ?? 0;
 
-    const handleConnectError = (connectError: Error) => {
+    const handleConnectError = useCallback((connectError: Error) => {
         setConnectionStatus('Ошибка подключения');
         setError(connectError.message || 'Не удалось подключиться к игровому серверу');
-    };
+    }, []);
+
+    const handleGameFinished = useCallback(
+        (payload: GameFinishedPayload) => {
+            if (!user) {
+                return;
+            }
+
+            if (payload.reason === 'PLAYER_DISCONNECTED') {
+                if (payload.winnerUserId === user.id) {
+                    setResultModal({
+                        isOpen: true,
+                        title: 'Вы выиграли',
+                        description: 'Противник отключился. Победа засчитана вам.',
+                    });
+                    setMessage('Матч завершён: соперник отключился.');
+                    return;
+                }
+
+                if (payload.disconnectedUserId === user.id) {
+                    setResultModal({
+                        isOpen: true,
+                        title: 'Вы проиграли',
+                        description: 'Соединение было прервано. Матч завершён.',
+                    });
+                    setMessage('Матч завершён из-за разрыва соединения.');
+                    return;
+                }
+
+                setResultModal({
+                    isOpen: true,
+                    title: 'Игра завершена',
+                    description: 'Один из игроков отключился.',
+                });
+                setMessage('Матч завершён из-за отключения игрока.');
+                return;
+            }
+
+            if (payload.winnerUserId === null) {
+                setResultModal({
+                    isOpen: true,
+                    title: 'Ничья',
+                    description: 'Игра завершилась вничью.',
+                });
+                setMessage('Игра завершена.');
+                return;
+            }
+
+            if (payload.winnerUserId === user.id) {
+                setResultModal({
+                    isOpen: true,
+                    title: 'Вы выиграли',
+                    description: 'Поздравляем! Вы победили в матче.',
+                });
+                setMessage('Игра завершена.');
+                return;
+            }
+
+            setResultModal({
+                isOpen: true,
+                title: 'Вы проиграли',
+                description: 'В этот раз победил соперник.',
+            });
+            setMessage('Игра завершена.');
+        },
+        [user],
+    );
 
     useEffect(() => {
         if (!id || !accessToken) {
@@ -45,7 +116,6 @@ export const GamePage = () => {
 
         const socket = socketService.connect(accessToken);
 
-        socketService.onConnectError(handleConnectError);
         const handleConnect = () => {
             setConnectionStatus('Соединение установлено');
             socketService.joinGameRoom(id);
@@ -86,11 +156,10 @@ export const GamePage = () => {
         };
 
         const handleFinished = (payload: GameFinishedPayload) => {
-            if (payload.reason === 'PLAYER_DISCONNECTED') {
-                setMessage('Игра завершена из-за отключения игрока.');
-            }
+            handleGameFinished(payload);
         };
 
+        socketService.onConnectError(handleConnectError);
         socketService.onConnect(handleConnect);
         socketService.onDisconnect(handleDisconnect);
         socketService.onGameStarted(handleStarted);
@@ -110,7 +179,7 @@ export const GamePage = () => {
             socketService.offGameFinished(handleFinished);
             socketService.disconnect();
         };
-    }, [id, accessToken]);
+    }, [id, accessToken, handleConnectError, handleGameFinished]);
 
     const handleCardClick = (cardIndex: number) => {
         if (!id || !gameState) {
@@ -133,6 +202,18 @@ export const GamePage = () => {
         setError('');
         socketService.flipCard(id, cardIndex);
     };
+
+    const handleBackToLobby = () => {
+        setResultModal(null);
+        navigate('/lobby');
+    };
+
+    const modalAccentColor =
+        resultModal?.title === 'Вы выиграли'
+            ? '#16a34a'
+            : resultModal?.title === 'Вы проиграли'
+                ? '#dc2626'
+                : '#475569';
 
     if (!id) {
         return <div style={{ padding: 24 }}>Идентификатор комнаты не найден.</div>;
@@ -158,14 +239,19 @@ export const GamePage = () => {
                     }}
                 >
                     <h1 style={{ fontSize: 28, marginBottom: 8 }}>Игра</h1>
-                    <div style={{ color: '#6b7280', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div
+                        style={{
+                            color: '#6b7280',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 4,
+                        }}
+                    >
                         <span>Статус соединения: {connectionStatus}</span>
                         <span>
               Сложность: {gameState ? difficultyLabel[gameState.difficulty] : 'Загрузка...'}
             </span>
-                        <span>
-              Ваш ход: {isMyTurn ? 'Да' : 'Нет'}
-            </span>
+                        <span>Ваш ход: {isMyTurn ? 'Да' : 'Нет'}</span>
                     </div>
                 </div>
 
@@ -236,9 +322,7 @@ export const GamePage = () => {
                                             <div style={{ fontSize: 14, color: '#6b7280' }}>
                                                 Логин: {player.login}
                                             </div>
-                                            <div style={{ marginTop: 8, fontSize: 16 }}>
-                                                Очки: {player.score}
-                                            </div>
+                                            <div style={{ marginTop: 8, fontSize: 16 }}>Очки: {player.score}</div>
                                             {isCurrentTurn && (
                                                 <div style={{ marginTop: 8, color: '#2563eb', fontWeight: 600 }}>
                                                     Сейчас ходит
@@ -324,6 +408,51 @@ export const GamePage = () => {
                     </div>
                 </div>
             </div>
+
+            {resultModal?.isOpen && (
+                <div
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(15, 23, 42, 0.55)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000,
+                        padding: 16,
+                    }}
+                >
+                    <div
+                        style={{
+                            width: '100%',
+                            maxWidth: 420,
+                            background: '#ffffff',
+                            borderRadius: 20,
+                            padding: 24,
+                            boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+                            textAlign: 'center',
+                        }}
+                    >
+                        <h2
+                            style={{
+                                fontSize: 28,
+                                marginBottom: 12,
+                                color: modalAccentColor,
+                            }}
+                        >
+                            {resultModal.title}
+                        </h2>
+
+                        <p style={{ color: '#6b7280', marginBottom: 20 }}>
+                            {resultModal.description}
+                        </p>
+
+                        <Button type="button" onClick={handleBackToLobby}>
+                            Вернуться в лобби
+                        </Button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,7 +1,6 @@
 import { BadRequestException } from "@nestjs/common";
 import {
     OnGatewayConnection,
-    OnGatewayDisconnect,
     SubscribeMessage,
     WebSocketGateway,
     WebSocketServer,
@@ -12,6 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
+import { RoomsService } from '../rooms/rooms.service';
 import { GameService } from './game.service';
 
 interface AuthenticatedSocket extends Socket {
@@ -29,7 +29,7 @@ interface AuthenticatedSocket extends Socket {
         credentials: true,
     },
 })
-export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GameGateway implements OnGatewayConnection {
     @WebSocketServer()
     server: Server;
 
@@ -38,6 +38,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         private readonly configService: ConfigService,
         private readonly usersService: UsersService,
         private readonly gameService: GameService,
+        private readonly roomsService: RoomsService,
     ) {}
 
     async handleConnection(client: AuthenticatedSocket) {
@@ -68,43 +69,51 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 login: user.login,
                 displayName: user.displayName,
             };
+
+            client.on('disconnecting', async () => {
+                if (!client.user || !client.currentRoomId) {
+                    return;
+                }
+
+                const result = await this.gameService.handlePlayerDisconnect(
+                    client.currentRoomId,
+                    client.user.id,
+                );
+
+                if (result) {
+                    this.server.to(client.currentRoomId).emit('game:finished', result);
+                }
+            });
         } catch {
             client.disconnect();
         }
     }
 
-    async handleDisconnect(client: AuthenticatedSocket) {
-        if (!client.user || !client.currentRoomId) {
-            return;
-        }
-
-        const result = await this.gameService.handlePlayerDisconnect(
-            client.currentRoomId,
-            client.user.id,
-        );
-
-        if (result) {
-            this.server.to(client.currentRoomId).emit('game:finished', result);
-        }
-    }
-
     @SubscribeMessage('game:join-room')
-    async joinRoom(
+    async handleJoinRoom(
         @ConnectedSocket() client: AuthenticatedSocket,
-        @MessageBody() body: { roomId: string },
+        @MessageBody() payload: { roomId: string },
     ) {
-        if (!client.user) {
-            throw new BadRequestException('Пользователь не авторизован');
+        const { roomId } = payload;
+
+        await client.join(roomId);
+        client.currentRoomId = roomId;
+
+        const room = await this.roomsService.getRoomById(roomId);
+
+        this.server.to(roomId).emit('room:updated', room);
+
+        if (room.participants.length === 2 && room.status === 'IN_GAME') {
+            try {
+                const gameState = await this.gameService.createGameForRoom(roomId);
+                this.server.to(roomId).emit('game:started', gameState);
+            } catch {
+                const gameState = this.gameService.getGameState(roomId);
+                if (gameState) {
+                    this.server.to(roomId).emit('game:started', gameState);
+                }
+            }
         }
-
-        client.join(body.roomId);
-        client.currentRoomId = body.roomId;
-
-        const game = await this.gameService.createGameForRoom(body.roomId);
-
-        this.server.to(body.roomId).emit('game:started', game);
-
-        return game;
     }
 
     @SubscribeMessage('game:get-state')
@@ -135,6 +144,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         );
 
         this.server.to(body.roomId).emit('game:update', result);
+
+        if (result.type === 'GAME_FINISHED') {
+            const players = result.state.players;
+            const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+            const winnerUserId =
+                sortedPlayers.length >= 2 && sortedPlayers[0].score === sortedPlayers[1].score
+                    ? null
+                    : sortedPlayers[0]?.userId ?? null;
+
+            this.server.to(body.roomId).emit('game:finished', {
+                roomId: body.roomId,
+                winnerUserId,
+                reason: 'GAME_COMPLETED',
+            });
+        }
 
         if (result.type === 'MATCH_FAIL') {
             setTimeout(() => {

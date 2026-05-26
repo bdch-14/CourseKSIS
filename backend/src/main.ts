@@ -1,21 +1,17 @@
 import { ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import * as cookieParser from 'cookie-parser';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
-    const configService = app.get(ConfigService);
 
     app.setGlobalPrefix('api');
 
     app.enableCors({
-        origin: configService.get<string>('CLIENT_URL'),
+        origin: 'http://localhost:5173',
         credentials: true,
     });
-
-    app.use(cookieParser());
 
     app.useGlobalPipes(
         new ValidationPipe({
@@ -25,7 +21,8 @@ async function bootstrap() {
         }),
     );
 
-    const port = configService.get<number>('PORT') || 5000;
-    await app.listen(port);
+    app.useWebSocketAdapter(new IoAdapter(app));
+
+    await app.listen(5000);
 }
 bootstrap();

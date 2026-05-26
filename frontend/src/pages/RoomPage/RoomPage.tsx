@@ -316,7 +316,7 @@ export const RoomPage = () => {
                         </Button>
                     )}
 
-                    {isParticipant && room.status === 'WAITING' && (
+                    {!isCreator && isParticipant && room.status === 'WAITING' && (
                         <Button type="button" onClick={() => void handleLeave()} disabled={isProcessing}>
                             {isProcessing ? 'Выходим...' : 'Покинуть комнату'}
                         </Button>
@@ -324,7 +324,7 @@ export const RoomPage = () => {
 
                     {isCreator && room.status === 'WAITING' && (
                         <Button type="button" onClick={() => void handleDelete()} disabled={isProcessing}>
-                            {isProcessing ? 'Удаляем...' : 'Удалить комнату'}
+                            {isProcessing ? 'Выходим...' : 'Назад в лобби'}
                         </Button>
                     )}
 
@@ -334,9 +334,11 @@ export const RoomPage = () => {
                         </Button>
                     )}
 
-                    <Button type="button" onClick={() => navigate('/lobby')}>
-                        Назад в лобби
-                    </Button>
+                    {!isCreator && (
+                        <Button type="button" onClick={() => navigate('/lobby')}>
+                            Назад в лобби
+                        </Button>
+                    )}
                 </div>
             </div>
         </div>
