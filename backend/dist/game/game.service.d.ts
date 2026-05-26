@@ -11,7 +11,7 @@ export declare class GameService {
         difficulty: import(".prisma/client").$Enums.Difficulty;
         startedAt: Date;
         currentTurnUserId: string;
-        status: "IN_PROGRESS" | "FINISHED";
+        status: "FINISHED" | "IN_PROGRESS";
         players: GamePlayerState[];
         openedCardIndexes: number[];
         board: {
@@ -26,7 +26,7 @@ export declare class GameService {
         difficulty: import(".prisma/client").$Enums.Difficulty;
         startedAt: Date;
         currentTurnUserId: string;
-        status: "IN_PROGRESS" | "FINISHED";
+        status: "FINISHED" | "IN_PROGRESS";
         players: GamePlayerState[];
         openedCardIndexes: number[];
         board: {
@@ -43,7 +43,7 @@ export declare class GameService {
             difficulty: import(".prisma/client").$Enums.Difficulty;
             startedAt: Date;
             currentTurnUserId: string;
-            status: "IN_PROGRESS" | "FINISHED";
+            status: "FINISHED" | "IN_PROGRESS";
             players: GamePlayerState[];
             openedCardIndexes: number[];
             board: {
@@ -61,7 +61,7 @@ export declare class GameService {
             difficulty: import(".prisma/client").$Enums.Difficulty;
             startedAt: Date;
             currentTurnUserId: string;
-            status: "IN_PROGRESS" | "FINISHED";
+            status: "FINISHED" | "IN_PROGRESS";
             players: GamePlayerState[];
             openedCardIndexes: number[];
             board: {
@@ -78,7 +78,7 @@ export declare class GameService {
         difficulty: import(".prisma/client").$Enums.Difficulty;
         startedAt: Date;
         currentTurnUserId: string;
-        status: "IN_PROGRESS" | "FINISHED";
+        status: "FINISHED" | "IN_PROGRESS";
         players: GamePlayerState[];
         openedCardIndexes: number[];
         board: {

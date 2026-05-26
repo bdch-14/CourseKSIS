@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = '/api';
 
 let accessToken: string | null = localStorage.getItem('find_pair_access_token');
 let refreshPromise: Promise<string | null> | null = null;
@@ -65,7 +65,11 @@ export const apiFetch = async <T>(
 ): Promise<T> => {
     const { auth = false, headers, _retry = false, ...restOptions } = options;
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    const normalizedEndpoint = endpoint.startsWith('/api')
+        ? endpoint
+        : `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+
+    const response = await fetch(normalizedEndpoint, {
         ...restOptions,
         credentials: 'include',
         headers: buildHeaders(auth, headers),

@@ -7,15 +7,15 @@ export declare class RoomsController {
     constructor(roomsService: RoomsService);
     getRooms(query: RoomsQueryDto): Promise<({
         createdBy: {
+            displayName: string;
             id: string;
             login: string;
-            displayName: string;
         };
         participants: ({
             user: {
+                displayName: string;
                 id: string;
                 login: string;
-                displayName: string;
             };
         } & {
             id: string;
@@ -25,24 +25,24 @@ export declare class RoomsController {
         })[];
     } & {
         id: string;
-        code: string;
-        difficulty: import(".prisma/client").$Enums.Difficulty;
-        status: import(".prisma/client").$Enums.RoomStatus;
-        createdById: string;
         createdAt: Date;
         updatedAt: Date;
+        difficulty: import(".prisma/client").$Enums.Difficulty;
+        status: import(".prisma/client").$Enums.RoomStatus;
+        code: string;
+        createdById: string;
     })[]>;
     getRoom(id: string): Promise<{
         createdBy: {
+            displayName: string;
             id: string;
             login: string;
-            displayName: string;
         };
         participants: ({
             user: {
+                displayName: string;
                 id: string;
                 login: string;
-                displayName: string;
             };
         } & {
             id: string;
@@ -52,26 +52,26 @@ export declare class RoomsController {
         })[];
     } & {
         id: string;
-        code: string;
-        difficulty: import(".prisma/client").$Enums.Difficulty;
-        status: import(".prisma/client").$Enums.RoomStatus;
-        createdById: string;
         createdAt: Date;
         updatedAt: Date;
+        difficulty: import(".prisma/client").$Enums.Difficulty;
+        status: import(".prisma/client").$Enums.RoomStatus;
+        code: string;
+        createdById: string;
     }>;
     createRoom(user: {
         id: string;
     }, dto: CreateRoomDto): Promise<{
         createdBy: {
+            displayName: string;
             id: string;
             login: string;
-            displayName: string;
         };
         participants: ({
             user: {
+                displayName: string;
                 id: string;
                 login: string;
-                displayName: string;
             };
         } & {
             id: string;
@@ -81,26 +81,26 @@ export declare class RoomsController {
         })[];
     } & {
         id: string;
-        code: string;
-        difficulty: import(".prisma/client").$Enums.Difficulty;
-        status: import(".prisma/client").$Enums.RoomStatus;
-        createdById: string;
         createdAt: Date;
         updatedAt: Date;
+        difficulty: import(".prisma/client").$Enums.Difficulty;
+        status: import(".prisma/client").$Enums.RoomStatus;
+        code: string;
+        createdById: string;
     }>;
     quickJoin(user: {
         id: string;
     }, dto: QuickJoinDto): Promise<{
         createdBy: {
+            displayName: string;
             id: string;
             login: string;
-            displayName: string;
         };
         participants: ({
             user: {
+                displayName: string;
                 id: string;
                 login: string;
-                displayName: string;
             };
         } & {
             id: string;
@@ -110,26 +110,26 @@ export declare class RoomsController {
         })[];
     } & {
         id: string;
-        code: string;
-        difficulty: import(".prisma/client").$Enums.Difficulty;
-        status: import(".prisma/client").$Enums.RoomStatus;
-        createdById: string;
         createdAt: Date;
         updatedAt: Date;
+        difficulty: import(".prisma/client").$Enums.Difficulty;
+        status: import(".prisma/client").$Enums.RoomStatus;
+        code: string;
+        createdById: string;
     }>;
     joinRoom(user: {
         id: string;
     }, id: string): Promise<{
         createdBy: {
+            displayName: string;
             id: string;
             login: string;
-            displayName: string;
         };
         participants: ({
             user: {
+                displayName: string;
                 id: string;
                 login: string;
-                displayName: string;
             };
         } & {
             id: string;
@@ -139,12 +139,12 @@ export declare class RoomsController {
         })[];
     } & {
         id: string;
-        code: string;
-        difficulty: import(".prisma/client").$Enums.Difficulty;
-        status: import(".prisma/client").$Enums.RoomStatus;
-        createdById: string;
         createdAt: Date;
         updatedAt: Date;
+        difficulty: import(".prisma/client").$Enums.Difficulty;
+        status: import(".prisma/client").$Enums.RoomStatus;
+        code: string;
+        createdById: string;
     }>;
     leaveRoom(user: {
         id: string;
@@ -155,15 +155,15 @@ export declare class RoomsController {
         deleted: boolean;
         room: {
             createdBy: {
+                displayName: string;
                 id: string;
                 login: string;
-                displayName: string;
             };
             participants: ({
                 user: {
+                    displayName: string;
                     id: string;
                     login: string;
-                    displayName: string;
                 };
             } & {
                 id: string;
@@ -173,12 +173,12 @@ export declare class RoomsController {
             })[];
         } & {
             id: string;
-            code: string;
-            difficulty: import(".prisma/client").$Enums.Difficulty;
-            status: import(".prisma/client").$Enums.RoomStatus;
-            createdById: string;
             createdAt: Date;
             updatedAt: Date;
+            difficulty: import(".prisma/client").$Enums.Difficulty;
+            status: import(".prisma/client").$Enums.RoomStatus;
+            code: string;
+            createdById: string;
         };
     }>;
     deleteRoom(user: {

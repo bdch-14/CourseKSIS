@@ -4,21 +4,21 @@ export declare class UsersService {
     private readonly prisma;
     constructor(prisma: PrismaService);
     findById(id: string): import(".prisma/client").Prisma.Prisma__UserClient<{
+        displayName: string;
         id: string;
         login: string;
         email: string;
         passwordHash: string;
-        displayName: string;
         refreshTokenHash: string | null;
         createdAt: Date;
         updatedAt: Date;
     }, null, import("@prisma/client/runtime/library").DefaultArgs, import(".prisma/client").Prisma.PrismaClientOptions>;
     findByLogin(login: string): import(".prisma/client").Prisma.Prisma__UserClient<{
+        displayName: string;
         id: string;
         login: string;
         email: string;
         passwordHash: string;
-        displayName: string;
         refreshTokenHash: string | null;
         createdAt: Date;
         updatedAt: Date;
@@ -29,21 +29,21 @@ export declare class UsersService {
         passwordHash: string;
         displayName: string;
     }): import(".prisma/client").Prisma.Prisma__UserClient<{
+        displayName: string;
         id: string;
         login: string;
         email: string;
         passwordHash: string;
-        displayName: string;
         refreshTokenHash: string | null;
         createdAt: Date;
         updatedAt: Date;
     }, never, import("@prisma/client/runtime/library").DefaultArgs, import(".prisma/client").Prisma.PrismaClientOptions>;
     updateRefreshTokenHash(userId: string, refreshTokenHash: string | null): import(".prisma/client").Prisma.Prisma__UserClient<{
+        displayName: string;
         id: string;
         login: string;
         email: string;
         passwordHash: string;
-        displayName: string;
         refreshTokenHash: string | null;
         createdAt: Date;
         updatedAt: Date;

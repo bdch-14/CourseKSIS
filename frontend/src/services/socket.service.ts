@@ -6,8 +6,6 @@ import type {
     GameUpdatePayload,
 } from '../types/game.types';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL;
-
 class SocketService {
     private socket: Socket | null = null;
 
@@ -22,7 +20,7 @@ class SocketService {
             return this.socket;
         }
 
-        this.socket = io(SOCKET_URL, {
+        this.socket = io({
             autoConnect: false,
             auth: {
                 token,
@@ -37,8 +35,10 @@ class SocketService {
     }
 
     disconnect() {
-        if (this.socket?.connected) {
+        if (this.socket) {
+            this.socket.removeAllListeners();
             this.socket.disconnect();
+            this.socket = null;
         }
     }
 
