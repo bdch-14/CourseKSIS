@@ -25,6 +25,11 @@ export class RoomsController {
         return this.roomsService.getRooms(query);
     }
 
+    @Get(':id')
+    getRoom(@Param('id') id: string) {
+        return this.roomsService.getRoomById(id);
+    }
+
     @Post()
     createRoom(
         @CurrentUser() user: { id: string },

@@ -45,53 +45,31 @@ export class RoomsService {
         });
     }
 
-    async createRoom(userId: string, dto: CreateRoomDto) {
-        const code = this.generateRoomCode();
-
-        return this.prisma.$transaction(async (tx) => {
-            const room = await tx.room.create({
-                data: {
-                    code,
-                    difficulty: dto.difficulty,
-                    status: RoomStatus.WAITING,
-                    createdById: userId,
-                    participants: {
-                        create: {
-                            userId,
-                        },
-                    },
-                },
-                include: {
-                    createdBy: {
-                        select: {
-                            id: true,
-                            login: true,
-                            displayName: true,
-                        },
-                    },
-                    participants: {
-                        include: {
-                            user: {
-                                select: {
-                                    id: true,
-                                    login: true,
-                                    displayName: true,
-                                },
-                            },
-                        },
-                    },
-                },
-            });
-
-            return room;
-        });
-    }
-
-    async joinRoom(userId: string, roomId: string) {
+    async getRoomById(roomId: string) {
         const room = await this.prisma.room.findUnique({
             where: { id: roomId },
             include: {
-                participants: true,
+                createdBy: {
+                    select: {
+                        id: true,
+                        login: true,
+                        displayName: true,
+                    },
+                },
+                participants: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                login: true,
+                                displayName: true,
+                            },
+                        },
+                    },
+                    orderBy: {
+                        joinedAt: 'asc',
+                    },
+                },
             },
         });
 
@@ -99,25 +77,18 @@ export class RoomsService {
             throw new NotFoundException('Комната не найдена');
         }
 
-        if (room.status !== RoomStatus.WAITING) {
-            throw new BadRequestException('Комната уже началась');
-        }
+        return room;
+    }
 
-        if (room.participants.length >= 2) {
-            throw new BadRequestException('Комната заполнена');
-        }
+    async createRoom(userId: string, dto: CreateRoomDto) {
+        const code = await this.generateUniqueRoomCode();
 
-        const existingParticipant = room.participants.find(
-            (participant) => participant.userId === userId,
-        );
-
-        if (existingParticipant) {
-            return room;
-        }
-
-        const updatedRoom = await this.prisma.room.update({
-            where: { id: roomId },
+        return this.prisma.room.create({
             data: {
+                code,
+                difficulty: dto.difficulty,
+                status: RoomStatus.WAITING,
+                createdById: userId,
                 participants: {
                     create: {
                         userId,
@@ -142,20 +113,123 @@ export class RoomsService {
                             },
                         },
                     },
+                    orderBy: {
+                        joinedAt: 'asc',
+                    },
                 },
             },
         });
+    }
 
-        if (updatedRoom.participants.length === 2) {
-            await this.prisma.room.update({
+    async joinRoom(userId: string, roomId: string) {
+        return this.prisma.$transaction(async (tx) => {
+            const room = await tx.room.findUnique({
                 where: { id: roomId },
-                data: {
-                    status: RoomStatus.IN_GAME,
+                include: {
+                    participants: {
+                        orderBy: {
+                            joinedAt: 'asc',
+                        },
+                    },
                 },
             });
-        }
 
-        return updatedRoom;
+            if (!room) {
+                throw new NotFoundException('Комната не найдена');
+            }
+
+            if (room.status !== RoomStatus.WAITING) {
+                throw new BadRequestException('Комната уже недоступна для входа');
+            }
+
+            const alreadyInRoom = room.participants.some(
+                (participant) => participant.userId === userId,
+            );
+
+            if (alreadyInRoom) {
+                return tx.room.findUnique({
+                    where: { id: roomId },
+                    include: {
+                        createdBy: {
+                            select: {
+                                id: true,
+                                login: true,
+                                displayName: true,
+                            },
+                        },
+                        participants: {
+                            include: {
+                                user: {
+                                    select: {
+                                        id: true,
+                                        login: true,
+                                        displayName: true,
+                                    },
+                                },
+                            },
+                            orderBy: {
+                                joinedAt: 'asc',
+                            },
+                        },
+                    },
+                });
+            }
+
+            if (room.createdById === userId) {
+                throw new BadRequestException('Нельзя войти в свою же комнату повторно');
+            }
+
+            if (room.participants.length >= 2) {
+                throw new BadRequestException('Комната заполнена');
+            }
+
+            await tx.roomParticipant.create({
+                data: {
+                    roomId,
+                    userId,
+                },
+            });
+
+            const participantsCount = await tx.roomParticipant.count({
+                where: { roomId },
+            });
+
+            if (participantsCount === 2) {
+                await tx.room.update({
+                    where: { id: roomId },
+                    data: {
+                        status: RoomStatus.IN_GAME,
+                    },
+                });
+            }
+
+            return tx.room.findUnique({
+                where: { id: roomId },
+                include: {
+                    createdBy: {
+                        select: {
+                            id: true,
+                            login: true,
+                            displayName: true,
+                        },
+                    },
+                    participants: {
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    login: true,
+                                    displayName: true,
+                                },
+                            },
+                        },
+                        orderBy: {
+                            joinedAt: 'asc',
+                        },
+                    },
+                },
+            });
+        });
     }
 
     async quickJoin(userId: string, difficulty?: Difficulty) {
@@ -163,24 +237,29 @@ export class RoomsService {
             where: {
                 status: RoomStatus.WAITING,
                 ...(difficulty ? { difficulty } : {}),
+                createdById: {
+                    not: userId,
+                },
                 participants: {
-                    some: {
-                        userId: {
-                            not: userId,
-                        },
+                    none: {
+                        userId,
                     },
                 },
             },
-            orderBy: {
-                createdAt: 'asc',
-            },
             include: {
                 participants: true,
+            },
+            orderBy: {
+                createdAt: 'asc',
             },
         });
 
         if (!room) {
             throw new NotFoundException('Подходящая комната не найдена');
+        }
+
+        if (room.participants.length >= 2) {
+            throw new BadRequestException('Комната уже заполнена');
         }
 
         return this.joinRoom(userId, room.id);
@@ -196,6 +275,10 @@ export class RoomsService {
 
         if (!room) {
             throw new NotFoundException('Комната не найдена');
+        }
+
+        if (room.status !== RoomStatus.WAITING) {
+            throw new BadRequestException('Нельзя покинуть комнату после старта матча');
         }
 
         const participant = room.participants.find((item) => item.userId === userId);
@@ -227,39 +310,18 @@ export class RoomsService {
             };
         }
 
-        const updatedRoom = await this.prisma.room.findUnique({
-            where: { id: roomId },
-            include: {
-                createdBy: {
-                    select: {
-                        id: true,
-                        login: true,
-                        displayName: true,
-                    },
-                },
-                participants: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                login: true,
-                                displayName: true,
-                            },
-                        },
-                    },
-                },
-            },
-        });
-
         return {
             deleted: false,
-            room: updatedRoom,
+            room: await this.getRoomById(roomId),
         };
     }
 
     async deleteRoom(userId: string, roomId: string) {
         const room = await this.prisma.room.findUnique({
             where: { id: roomId },
+            include: {
+                participants: true,
+            },
         });
 
         if (!room) {
@@ -268,6 +330,10 @@ export class RoomsService {
 
         if (room.createdById !== userId) {
             throw new ForbiddenException('Удалять комнату может только создатель');
+        }
+
+        if (room.status !== RoomStatus.WAITING) {
+            throw new BadRequestException('Нельзя удалить комнату после старта матча');
         }
 
         await this.prisma.room.delete({
@@ -279,7 +345,17 @@ export class RoomsService {
         };
     }
 
-    private generateRoomCode() {
-        return Math.random().toString(36).slice(2, 8).toUpperCase();
+    private async generateUniqueRoomCode() {
+        while (true) {
+            const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+
+            const existingRoom = await this.prisma.room.findUnique({
+                where: { code },
+            });
+
+            if (!existingRoom) {
+                return code;
+            }
+        }
     }
 }
