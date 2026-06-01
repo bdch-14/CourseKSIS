@@ -313,7 +313,7 @@ export const ProfilePage = () => {
                     <StatCard label="Побед" value={profile.stats.wins} />
                     <StatCard label="Поражений" value={profile.stats.losses} />
                     <StatCard label="Ничьих" value={profile.stats.draws} />
-                    <StatCard label="Winrate" value={`${profile.stats.winRate}%`} />
+                    <StatCard label="Процент побед" value={`${profile.stats.winRate}%`} />
                 </div>
 
                 <div
